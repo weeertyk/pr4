@@ -230,7 +230,6 @@ export function OnboardingScreen({
           <div>
             <p className="text-sm font-medium">Профиль готов</p>
             <p className="text-xs text-muted-foreground">После этого начну собирать маршрут и рекомендации.</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">ID пользователя: {userId.slice(0, 8)}</p>
             {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
           </div>
           <button

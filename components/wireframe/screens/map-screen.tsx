@@ -42,22 +42,12 @@ function filterPlace(place: BoundsPlace, activeFilter: FilterId, searchQuery: st
     place.category.toLowerCase().includes(normalizedSearch) ||
     categoryLabel.includes(normalizedSearch)
 
-  if (!matchesSearch) {
-    return false
-  }
+  if (!matchesSearch) return false
 
-  if (activeFilter === "all") {
-    return true
-  }
-
-  if (activeFilter === "food") {
-    return place.category === "CAFE" || place.category === "RESTAURANT"
-  }
-
-  if (activeFilter === "attractions") {
+  if (activeFilter === "all") return true
+  if (activeFilter === "food") return place.category === "CAFE" || place.category === "RESTAURANT"
+  if (activeFilter === "attractions")
     return ["MUSEUM", "PARK", "VIEWPOINT", "LANDMARK"].includes(place.category)
-  }
-
   return place.category === "TRANSPORT"
 }
 
@@ -79,42 +69,26 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
       try {
         setIsLoading(true)
         setError(null)
-
         const params = new URLSearchParams({
           minLat: String(DEMO_CITY_CENTER.lat - span),
           minLng: String(DEMO_CITY_CENTER.lng - span),
           maxLat: String(DEMO_CITY_CENTER.lat + span),
           maxLng: String(DEMO_CITY_CENTER.lng + span),
         })
-
         const response = await fetch(`/api/places/in-bounds?${params.toString()}`)
-
-        if (!response.ok) {
-          throw new Error("Не удалось загрузить точки на карте.")
-        }
-
+        if (!response.ok) throw new Error("Не удалось загрузить точки на карте.")
         const json = await response.json()
-
-        if (!isActive) {
-          return
-        }
-
+        if (!isActive) return
         setPlaces(json.places ?? [])
       } catch (loadError) {
-        if (!isActive) {
-          return
-        }
-
+        if (!isActive) return
         setError(loadError instanceof Error ? loadError.message : "Неизвестная ошибка.")
       } finally {
-        if (isActive) {
-          setIsLoading(false)
-        }
+        if (isActive) setIsLoading(false)
       }
     }
 
     void loadPlaces()
-
     return () => {
       isActive = false
     }
@@ -132,9 +106,7 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
     null
 
   useEffect(() => {
-    if (!selectedPlaceId && filteredPlaces[0]) {
-      setSelectedPlaceId(filteredPlaces[0].id)
-    }
+    if (!selectedPlaceId && filteredPlaces[0]) setSelectedPlaceId(filteredPlaces[0].id)
   }, [filteredPlaces, selectedPlaceId])
 
   function handleCycleFilter() {
@@ -144,14 +116,15 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Верхняя панель поиска и фильтров */}
       <header className="p-4 border-b-2 border-foreground">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск по названию или категории..."
             className="w-full pl-10 pr-4 py-3 border-2 border-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground"
           />
@@ -164,9 +137,7 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
               onClick={() => setActiveFilter(filter.id)}
               className={cn(
                 "flex-shrink-0 px-3 py-1.5 border-2 border-foreground text-sm transition-colors",
-                activeFilter === filter.id
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted",
+                activeFilter === filter.id ? "bg-foreground text-background" : "hover:bg-muted",
               )}
             >
               {filter.label}
@@ -175,7 +146,8 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
         </div>
       </header>
 
-      <div className="flex-1 relative border-b-2 border-foreground bg-muted overflow-hidden h-full">
+      {/* Карта занимает половину экрана */}
+      <div className="relative h-1/3 border-b-2 border-foreground">
         <MapLibreMap
           center={[DEMO_CITY_CENTER.lng, DEMO_CITY_CENTER.lat]}
           zoom={14 - zoomIndex}
@@ -188,12 +160,45 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
           }))}
           selectedMarkerId={selectedPlace?.id ?? null}
           onMarkerSelect={setSelectedPlaceId}
-          className="h-full"
+          className="h-full w-full"
         />
 
-        <div className="absolute top-3 left-3 bg-background border-2 border-foreground px-3 py-2 text-sm z-10">
-          Центр: {DEMO_CITY_CENTER.lat.toFixed(4)}, {DEMO_CITY_CENTER.lng.toFixed(4)}
+        {/* Элементы управления карты */}
+        <div className="absolute right-4 top-4 flex flex-col gap-2 z-10">
+          <button
+            onClick={handleCycleFilter}
+            className="w-10 h-10 bg-background border-2 border-foreground flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <Layers className="w-5 h-5" />
+          </button>
         </div>
+
+        <div className="absolute right-4 bottom-4 flex flex-col gap-0 z-10">
+          <button
+            onClick={() => setZoomIndex((c) => Math.max(c - 1, 0))}
+            className="w-10 h-10 bg-background border-2 border-foreground flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setZoomIndex((c) => Math.min(c + 1, zoomSpans.length - 1))}
+            className="w-10 h-10 bg-background border-2 border-foreground border-t-0 flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <Minus className="w-5 h-5" />
+          </button>
+        </div>
+
+        <button
+          onClick={() => {
+            setSearchQuery("")
+            setActiveFilter("all")
+            setZoomIndex(1)
+          }}
+          className="absolute left-4 bottom-4 bg-foreground text-background px-4 py-2 flex items-center gap-2 border-2 border-foreground z-10"
+        >
+          <Navigation className="w-4 h-4" />
+          <span className="text-sm font-medium">Моя локация</span>
+        </button>
 
         {isLoading && (
           <div className="absolute left-3 bottom-16 z-10 bg-background border-2 border-foreground px-3 py-2 flex items-center gap-2 text-sm">
@@ -213,60 +218,22 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
             В этих границах сейчас нет точек по выбранному фильтру.
           </div>
         )}
-
-        <div className="absolute right-4 top-4 flex flex-col gap-2 z-10">
-          <button
-            onClick={handleCycleFilter}
-            className="w-10 h-10 bg-background border-2 border-foreground flex items-center justify-center hover:bg-muted transition-colors"
-          >
-            <Layers className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="absolute right-4 bottom-4 flex flex-col gap-0 z-10">
-          <button
-            onClick={() => setZoomIndex((current) => Math.max(current - 1, 0))}
-            className="w-10 h-10 bg-background border-2 border-foreground flex items-center justify-center hover:bg-muted transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setZoomIndex((current) => Math.min(current + 1, zoomSpans.length - 1))}
-            className="w-10 h-10 bg-background border-2 border-foreground border-t-0 flex items-center justify-center hover:bg-muted transition-colors"
-          >
-            <Minus className="w-5 h-5" />
-          </button>
-        </div>
-
-        <button
-          onClick={() => {
-            setSearchQuery("")
-            setActiveFilter("all")
-            setZoomIndex(1)
-          }}
-          className="absolute left-4 bottom-4 bg-foreground text-background px-4 py-2 flex items-center gap-2 border-2 border-foreground z-10"
-        >
-          <Navigation className="w-4 h-4" />
-          <span className="text-sm font-medium">Моя локация</span>
-        </button>
       </div>
 
-      <div className="p-4 border-b-2 border-foreground">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-sm">Выбранная точка</h3>
-            <p className="text-sm font-medium truncate">
-              {selectedPlace?.name ?? "Нет активной точки"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {selectedPlace ? getPlaceCategoryLabel(selectedPlace.category) : "Выберите маркер на карте"}
-            </p>
-          </div>
+      {/* Нижняя половина экрана: список и детали */}
+      <div className="flex-1 overflow-auto p-4">
+        <div className="mb-4 border-b-2 border-foreground pb-2">
+          <h3 className="font-semibold text-sm">Выбранная точка</h3>
+          <p className="text-sm font-medium truncate">
+            {selectedPlace?.name ?? "Нет активной точки"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {selectedPlace ? getPlaceCategoryLabel(selectedPlace.category) : "Выберите маркер на карте"}
+          </p>
           <button
             disabled={!selectedPlace}
             onClick={() => {
               if (!selectedPlace) return
-
               onNavigate({
                 id: selectedPlace.id,
                 name: selectedPlace.name,
@@ -275,38 +242,38 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
                 longitude: selectedPlace.longitude,
               })
             }}
-            className="px-4 py-3 border-2 border-foreground font-bold text-sm hover:bg-muted transition-colors disabled:opacity-50"
+            className="mt-2 px-4 py-2 border-2 border-foreground font-bold text-sm hover:bg-muted transition-colors disabled:opacity-50"
           >
             Маршрут
           </button>
         </div>
-      </div>
 
-      <div className="p-4">
-        <h3 className="font-semibold mb-2 text-sm">Точки в текущих границах</h3>
-        <div className="space-y-2">
-          {filteredPlaces.map((place) => (
-            <button
-              key={place.id}
-              onClick={() => setSelectedPlaceId(place.id)}
-              className={cn(
-                "w-full p-3 border-2 text-left transition-colors",
-                selectedPlace?.id === place.id
-                  ? "border-foreground bg-muted"
-                  : "border-foreground hover:bg-muted",
-              )}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{place.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {getPlaceCategoryLabel(place.category)} · {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
-                  </p>
+        <div>
+          <h3 className="font-semibold mb-2 text-sm">Точки в текущих границах</h3>
+          <div className="space-y-2">
+            {filteredPlaces.map((place) => (
+              <button
+                key={place.id}
+                onClick={() => setSelectedPlaceId(place.id)}
+                className={cn(
+                  "w-full p-3 border-2 text-left transition-colors",
+                  selectedPlace?.id === place.id
+                    ? "border-foreground bg-muted"
+                    : "border-foreground hover:bg-muted",
+                )}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{place.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {getPlaceCategoryLabel(place.category)} · {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
+                    </p>
+                  </div>
+                  <span className="text-xs border border-foreground px-2 py-1">точка</span>
                 </div>
-                <span className="text-xs border border-foreground px-2 py-1">точка</span>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

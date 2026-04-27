@@ -49,19 +49,19 @@ function getRiskPresentation(level: "SAFE" | "CAUTION" | "AVOID", score: number)
   if (level === "CAUTION") {
     return {
       label: "Стоит быть внимательнее",
-      cardClass: "bg-primary text-primary-foreground",
-      badgeClass: "bg-white/12 text-primary-foreground",
-      toneClass: "text-primary-foreground",
+      cardClass: "bg-card text-card-foreground",
+      badgeClass: "bg-secondary/55 text-foreground",
+      toneClass: "text-emerald-700",
       score,
     }
   }
 
   return {
     label: "Лучше изменить маршрут",
-    cardClass: "bg-destructive text-destructive-foreground",
-    badgeClass: "bg-white/12 text-destructive-foreground",
-    toneClass: "text-destructive-foreground",
-    score,
+      cardClass: "bg-card text-card-foreground",
+      badgeClass: "bg-secondary/55 text-foreground",
+      toneClass: "text-emerald-700",
+      score,
   }
 }
 

@@ -134,16 +134,16 @@ export function SettingsScreen({
               Изменить
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {travelModes.map((mode) => (
-              <span
-                key={mode}
-                className="rounded-full border border-border bg-background px-3 py-2 text-sm"
-              >
-                {mode}
-              </span>
-            ))}
-          </div>
+                     <div className="flex flex-wrap gap-2">
+             {travelModes.map((mode, index) => (
+               <span
+                 key={`${mode}-${index}`}
+                 className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+               >
+                 {mode}
+               </span>
+             ))}
+           </div>
           <div className="mt-4 rounded-md bg-secondary/45 px-4 py-3 text-sm text-foreground/85">
             AI-помощник использует эти настройки, чтобы выбирать маршрут, места рядом и тон рекомендаций.
           </div>

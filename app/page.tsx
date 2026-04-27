@@ -212,9 +212,9 @@ export default function Home() {
     )
   }
 
-  return (
-    <main className="mx-auto min-h-screen max-w-md px-3 py-3 md:px-5">
-      <div className="travel-shell h-[calc(100vh-24px)] overflow-hidden border border-white/60 flex flex-col">
+   return (
+     <main className="mx-auto min-h-screen max-w-md px-3 py-3 md:px-5">
+       <div className="travel-shell h-[calc(100vh-24px)] overflow-y-auto border border-white/60 flex flex-col">
         {currentScreen === "auth" && <AuthScreen onReady={() => void handleAuthReady()} />}
 
         {currentScreen === "onboarding" && authUser && (
