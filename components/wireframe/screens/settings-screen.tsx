@@ -76,11 +76,13 @@ export function SettingsScreen({
     },
   ]
 
-  const travelModes = [
-    formatBudget(preferences?.budget_level),
-    formatMode(preferences?.preference_mode),
-    ...formatTravelStyles(preferences?.travel_styles),
-  ]
+  const travelModes = Array.from(
+    new Set([
+      formatBudget(preferences?.budget_level),
+      formatMode(preferences?.preference_mode),
+      ...formatTravelStyles(preferences?.travel_styles),
+    ]),
+  )
 
   return (
     <div className="min-h-screen bg-background pb-24">
