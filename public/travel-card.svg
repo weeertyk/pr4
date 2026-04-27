@@ -1,0 +1,17 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cardbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1B4257"/>
+      <stop offset="45%" stop-color="#32737D"/>
+      <stop offset="100%" stop-color="#E09A58"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#cardbg)"/>
+  <circle cx="170" cy="130" r="80" fill="#FFFFFF" fill-opacity="0.14"/>
+  <circle cx="1060" cy="620" r="110" fill="#FFFFFF" fill-opacity="0.14"/>
+  <path d="M0 560C180 500 280 610 420 600C620 585 700 420 900 410C1010 404 1100 440 1200 490V800H0V560Z" fill="#113145" fill-opacity="0.76"/>
+  <path d="M0 635C140 590 270 660 420 680C650 710 820 540 1010 560C1080 568 1140 590 1200 620V800H0V635Z" fill="#0A2234" fill-opacity="0.88"/>
+  <rect x="86" y="466" width="220" height="160" rx="18" fill="#FFFFFF" fill-opacity="0.1"/>
+  <rect x="116" y="506" width="160" height="20" rx="10" fill="#FFFFFF" fill-opacity="0.3"/>
+  <rect x="116" y="540" width="118" height="14" rx="7" fill="#FFFFFF" fill-opacity="0.2"/>
+</svg>
