@@ -7,12 +7,12 @@ import { getRouteProviderLabel } from "@/lib/travel/presentation"
 import type { DestinationPlace } from "@/lib/travel/ui-types"
 
 interface NavigationScreenProps {
-  onBack: () => void
-  origin: {
+  readonly onBack: () => void
+  readonly origin: {
     lat: number
     lng: number
   }
-  destination: DestinationPlace
+  readonly destination: DestinationPlace
 }
 
 type RouteStep = {
@@ -50,6 +50,53 @@ function formatDuration(durationSeconds: number) {
   const minutes = totalMinutes % 60
 
   return minutes > 0 ? `${hours} ч ${minutes} мин` : `${hours} ч`
+}
+
+function renderRouteStatus(
+  isLoading: boolean,
+  error: string | null,
+  route: RouteData | null,
+  arrivalTime: string | null,
+  voiceEnabled: boolean
+) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3">
+        <LoaderCircle className="w-5 h-5 animate-spin" />
+        <p className="text-sm">Строю маршрут...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div>
+        <p className="font-bold">Ошибка маршрута</p>
+        <p className="text-sm opacity-80">{error}</p>
+      </div>
+    )
+  }
+
+  if (route) {
+    return (
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Clock className="w-6 h-6" />
+          <div>
+            <p className="text-2xl font-bold">{formatDuration(route.summary.durationSeconds)}</p>
+            <p className="text-sm opacity-80">{formatDistance(route.summary.distanceMeters)} пешком</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm opacity-80">Прибытие</p>
+          <p className="font-bold">{arrivalTime ?? "--:--"}</p>
+          <p className="text-xs opacity-80">{getRouteProviderLabel(route.provider)} · {voiceEnabled ? "голос включён" : "без голоса"}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export function NavigationScreen({ onBack, origin, destination }: NavigationScreenProps) {
@@ -144,7 +191,7 @@ export function NavigationScreen({ onBack, origin, destination }: NavigationScre
         </button>
       </header>
 
-      <div className="flex-1 border-b-2 border-foreground relative min-h-[320px]">
+      <div className="flex-1 border-b-2 border-foreground relative min-h-[320px] overflow-hidden h-full">
         <MapLibreMap
           center={[origin.lng, origin.lat]}
           zoom={14}
@@ -161,6 +208,7 @@ export function NavigationScreen({ onBack, origin, destination }: NavigationScre
             },
           ]}
           selectedMarkerId={destination.id}
+          className="h-full"
         />
         <div className="absolute top-4 left-4 bg-background border-2 border-foreground px-4 py-2 text-center max-w-72 z-10">
           <span className="text-sm font-medium block">Маршрут до выбранной точки</span>
@@ -176,32 +224,7 @@ export function NavigationScreen({ onBack, origin, destination }: NavigationScre
       </div>
 
       <div className="p-4 border-b-2 border-foreground bg-foreground text-background">
-        {isLoading ? (
-          <div className="flex items-center gap-3">
-            <LoaderCircle className="w-5 h-5 animate-spin" />
-            <p className="text-sm">Строю маршрут...</p>
-          </div>
-        ) : error ? (
-          <div>
-            <p className="font-bold">Ошибка маршрута</p>
-            <p className="text-sm opacity-80">{error}</p>
-          </div>
-        ) : route ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6" />
-              <div>
-                <p className="text-2xl font-bold">{formatDuration(route.summary.durationSeconds)}</p>
-                <p className="text-sm opacity-80">{formatDistance(route.summary.distanceMeters)} пешком</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm opacity-80">Прибытие</p>
-              <p className="font-bold">{arrivalTime ?? "--:--"}</p>
-              <p className="text-xs opacity-80">{getRouteProviderLabel(route.provider)} · {voiceEnabled ? "голос включён" : "без голоса"}</p>
-            </div>
-          </div>
-        ) : null}
+        {renderRouteStatus(isLoading, error, route, arrivalTime ?? null, voiceEnabled)}
       </div>
 
       <div className="p-4">

@@ -10,8 +10,8 @@ import { BottomNav } from "../bottom-nav"
 import { cn } from "@/lib/utils"
 
 interface MapScreenProps {
-  onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
-  onNavigate: (destination?: DestinationPlace) => void
+  readonly onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
+  readonly onNavigate: (destination?: DestinationPlace) => void
 }
 
 type BoundsPlace = {
@@ -175,7 +175,7 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
         </div>
       </header>
 
-      <div className="flex-1 relative border-b-2 border-foreground bg-muted min-h-[360px]">
+      <div className="flex-1 relative border-b-2 border-foreground bg-muted overflow-hidden h-full">
         <MapLibreMap
           center={[DEMO_CITY_CENTER.lng, DEMO_CITY_CENTER.lat]}
           zoom={14 - zoomIndex}
@@ -188,6 +188,7 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
           }))}
           selectedMarkerId={selectedPlace?.id ?? null}
           onMarkerSelect={setSelectedPlaceId}
+          className="h-full"
         />
 
         <div className="absolute top-3 left-3 bg-background border-2 border-foreground px-3 py-2 text-sm z-10">

@@ -14,15 +14,15 @@ type MarkerPoint = {
 type RouteGeometry = Array<[number, number]>
 
 interface MapLibreMapProps {
-  center: [number, number]
-  zoom: number
-  markers?: MarkerPoint[]
-  selectedMarkerId?: string | null
-  onMarkerSelect?: (markerId: string) => void
-  routeGeometry?: RouteGeometry
-  origin?: [number, number]
-  destination?: [number, number]
-  className?: string
+  readonly center: [number, number]
+  readonly zoom: number
+  readonly markers?: MarkerPoint[]
+  readonly selectedMarkerId?: string | null
+  readonly onMarkerSelect?: (markerId: string) => void
+  readonly routeGeometry?: RouteGeometry
+  readonly origin?: [number, number]
+  readonly destination?: [number, number]
+  readonly className?: string
 }
 
 type MapLibreModule = typeof import("maplibre-gl")
@@ -94,6 +94,144 @@ function buildRouteGeoJson(routeGeometry?: RouteGeometry) {
   }
 }
 
+function removeLayers(map: MapInstance) {
+  const layerIds = ["places-layer", "places-label", "route-line", "origin-layer", "destination-layer"]
+  layerIds.forEach((id) => {
+    if (map.getLayer(id)) map.removeLayer(id)
+  })
+}
+
+function removeSources(map: MapInstance) {
+  const sourceIds = ["places", "route", "origin", "destination"]
+  sourceIds.forEach((id) => {
+    if (map.getSource(id)) map.removeSource(id)
+  })
+}
+
+function addPlacesLayer(map: MapInstance, placesGeoJson: any) {
+  map.addSource("places", {
+    type: "geojson",
+    data: placesGeoJson,
+  })
+
+  map.addLayer({
+    id: "places-layer",
+    type: "circle",
+    source: "places",
+    paint: {
+      "circle-radius": 8,
+      "circle-color": [
+        "case",
+        ["boolean", ["get", "isSelected"], false],
+        "#ffffff",
+        "#111111",
+      ],
+      "circle-stroke-width": 2,
+      "circle-stroke-color": [
+        "case",
+        ["boolean", ["get", "isSelected"], false],
+        "#111111",
+        "#ffffff",
+      ],
+    },
+  })
+
+  map.addLayer({
+    id: "places-label",
+    type: "symbol",
+    source: "places",
+    layout: {
+      "text-field": ["get", "name"],
+      "text-size": 11,
+      "text-offset": [0, 1.5],
+      "text-anchor": "top",
+    },
+    paint: {
+      "text-color": "#111111",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 1.5,
+    },
+  })
+}
+
+function addRouteLayer(map: MapInstance, routeGeoJson: any) {
+  map.addSource("route", {
+    type: "geojson",
+    data: routeGeoJson,
+  })
+
+  map.addLayer({
+    id: "route-line",
+    type: "line",
+    source: "route",
+    paint: {
+      "line-color": "#111111",
+      "line-width": 4,
+    },
+  })
+}
+
+function addOriginLayer(map: MapInstance, originGeoJson: any) {
+  map.addSource("origin", {
+    type: "geojson",
+    data: originGeoJson,
+  })
+
+  map.addLayer({
+    id: "origin-layer",
+    type: "circle",
+    source: "origin",
+    paint: {
+      "circle-radius": 6,
+      "circle-color": "#2563eb",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#ffffff",
+    },
+  })
+}
+
+function addDestinationLayer(map: MapInstance, destinationGeoJson: any) {
+  map.addSource("destination", {
+    type: "geojson",
+    data: destinationGeoJson,
+  })
+
+  map.addLayer({
+    id: "destination-layer",
+    type: "circle",
+    source: "destination",
+    paint: {
+      "circle-radius": 7,
+      "circle-color": "#dc2626",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#ffffff",
+    },
+  })
+}
+
+function addMarkerInteractions(map: MapInstance, onMarkerSelect?: (markerId: string) => void) {
+  if (!onMarkerSelect) {
+    return
+  }
+
+  map.on("click", "places-layer", (event) => {
+    const feature = event.features?.[0]
+    const markerId = feature?.properties?.id
+
+    if (typeof markerId === "string") {
+      onMarkerSelect(markerId)
+    }
+  })
+
+  map.on("mouseenter", "places-layer", () => {
+    map.getCanvas().style.cursor = "pointer"
+  })
+
+  map.on("mouseleave", "places-layer", () => {
+    map.getCanvas().style.cursor = ""
+  })
+}
+
 export function MapLibreMap({
   center,
   zoom,
@@ -134,163 +272,80 @@ export function MapLibreMap({
           return
         }
 
-        const map = new maplibregl.Map({
-          container: containerRef.current,
-          style: {
-            version: 8,
-            sources: {
-              osm: {
-                type: "raster",
-                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: "© OpenStreetMap contributors",
-              },
-            },
-            layers: [
-              {
-                id: "osm",
-                type: "raster",
-                source: "osm",
-              },
-            ],
-          },
-          center,
-          zoom,
-        })
+        // Оборачиваем в requestAnimationFrame, чтобы контейнер успел получить реальные размеры
+        const rafId = requestAnimationFrame(() => initMapOnRAF(maplibregl))
 
-        map.addControl(new maplibregl.NavigationControl(), "top-right")
-
-        map.on("load", () => {
-          if (!isMounted) {
-            return
-          }
-
-          map.addSource("places", {
-            type: "geojson",
-            data: placesGeoJson,
-          })
-
-          map.addLayer({
-            id: "places-layer",
-            type: "circle",
-            source: "places",
-            paint: {
-              "circle-radius": 8,
-              "circle-color": [
-                "case",
-                ["boolean", ["get", "isSelected"], false],
-                "#ffffff",
-                "#111111",
-              ],
-              "circle-stroke-width": 2,
-              "circle-stroke-color": [
-                "case",
-                ["boolean", ["get", "isSelected"], false],
-                "#111111",
-                "#ffffff",
-              ],
-            },
-          })
-
-          map.addLayer({
-            id: "places-label",
-            type: "symbol",
-            source: "places",
-            layout: {
-              "text-field": ["get", "name"],
-              "text-size": 11,
-              "text-offset": [0, 1.5],
-              "text-anchor": "top",
-            },
-            paint: {
-              "text-color": "#111111",
-              "text-halo-color": "#ffffff",
-              "text-halo-width": 1.5,
-            },
-          })
-
-          map.addSource("route", {
-            type: "geojson",
-            data: routeGeoJson,
-          })
-
-          map.addLayer({
-            id: "route-line",
-            type: "line",
-            source: "route",
-            paint: {
-              "line-color": "#111111",
-              "line-width": 4,
-            },
-          })
-
-          map.addSource("origin", {
-            type: "geojson",
-            data: originGeoJson,
-          })
-
-          map.addLayer({
-            id: "origin-layer",
-            type: "circle",
-            source: "origin",
-            paint: {
-              "circle-radius": 6,
-              "circle-color": "#2563eb",
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#ffffff",
-            },
-          })
-
-          map.addSource("destination", {
-            type: "geojson",
-            data: destinationGeoJson,
-          })
-
-          map.addLayer({
-            id: "destination-layer",
-            type: "circle",
-            source: "destination",
-            paint: {
-              "circle-radius": 7,
-              "circle-color": "#dc2626",
-              "circle-stroke-width": 2,
-              "circle-stroke-color": "#ffffff",
-            },
-          })
-
-          if (onMarkerSelect) {
-            map.on("click", "places-layer", (event) => {
-              const feature = event.features?.[0]
-              const markerId = feature?.properties?.id
-
-              if (typeof markerId === "string") {
-                onMarkerSelect(markerId)
-              }
-            })
-
-            map.on("mouseenter", "places-layer", () => {
-              map.getCanvas().style.cursor = "pointer"
-            })
-
-            map.on("mouseleave", "places-layer", () => {
-              map.getCanvas().style.cursor = ""
-            })
-          }
-
-          mapRef.current = map
-          setStatus("ready")
-        })
-
-        map.on("error", () => {
-          if (isMounted) {
-            setStatus("error")
-          }
-        })
+        return () => {
+          cancelAnimationFrame(rafId)
+        }
       } catch {
         if (isMounted) {
           setStatus("error")
         }
       }
+    }
+
+    function initMapOnRAF(maplibregl: MapLibreModule) {
+      if (!containerRef.current || !isMounted) {
+        return
+      }
+
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: "raster",
+              tiles: [
+                "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              ],
+              tileSize: 256,
+              attribution: "© OpenStreetMap",
+            },
+          },
+          layers: [{ id: "osm", type: "raster", source: "osm" }],
+        },
+        center,
+        zoom,
+        fadeDuration: 0,
+      })
+
+      map.addControl(new maplibregl.NavigationControl(), "top-right")
+
+      function updateMapData() {
+        if (!isMounted || !map) {
+          return
+        }
+
+        removeLayers(map)
+        removeSources(map)
+
+        addPlacesLayer(map, placesGeoJson)
+        addRouteLayer(map, routeGeoJson)
+        addOriginLayer(map, originGeoJson)
+        addDestinationLayer(map, destinationGeoJson)
+        addMarkerInteractions(map, onMarkerSelect)
+
+        map.resize()
+        setStatus("ready")
+      }
+
+      // ПРАВИЛЬНАЯ проверка загрузки стиля
+      if (map.isStyleLoaded()) {
+        updateMapData()
+      } else {
+        map.once("load", updateMapData)
+      }
+
+      map.on("error", () => {
+        if (isMounted) {
+          setStatus("error")
+        }
+      })
+
+      mapRef.current = map
     }
 
     void initMap()
@@ -300,7 +355,7 @@ export function MapLibreMap({
       mapRef.current?.remove()
       mapRef.current = null
     }
-  }, [center, onMarkerSelect, zoom])
+  }, [center, zoom, placesGeoJson, routeGeoJson, originGeoJson, destinationGeoJson, onMarkerSelect])
 
   useEffect(() => {
     const map = mapRef.current
@@ -342,8 +397,28 @@ export function MapLibreMap({
     })
   }, [center, routeGeometry, zoom])
 
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        requestAnimationFrame(() => mapRef.current?.resize())
+      }
+    }
+
+    const handleFocus = () => {
+      requestAnimationFrame(() => mapRef.current?.resize())
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility)
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [])
+
   return (
-    <div className={`relative h-full w-full ${className ?? ""}`}>
+    <div className={`relative w-full h-full ${className ?? ""}`}>
       <div ref={containerRef} className="h-full w-full" />
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/70">
