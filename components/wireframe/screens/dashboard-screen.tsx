@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, ArrowRight, CloudRain, Compass, LoaderCircle, Navigation, Shield, User } from "lucide-react"
+import { AlertTriangle, ArrowRight, CloudRain, Compass, LoaderCircle, LogOut, Navigation, Shield, User } from "lucide-react"
 import { getPlaceCategoryLabel } from "@/lib/travel/presentation"
 import type { DestinationPlace } from "@/lib/travel/ui-types"
 import { BottomNav } from "../bottom-nav"
@@ -11,6 +11,7 @@ interface DashboardScreenProps {
   onNavigate: (destination?: DestinationPlace) => void
   onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
   onOpenRecovery: () => void
+  onSignOut: () => Promise<void> | void
 }
 
 type RecommendationItem = {
@@ -78,7 +79,7 @@ function actionLabel(actionType: string | undefined) {
   }
 }
 
-export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecovery }: DashboardScreenProps) {
+export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecovery, onSignOut }: DashboardScreenProps) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,12 +156,21 @@ export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecover
               Держу ритм маршрута в фокусе и подсказываю следующее лучшее действие.
             </p>
           </div>
-          <button
-            onClick={() => onTabChange("settings")}
-            className="travel-panel flex h-11 w-11 items-center justify-center"
-          >
-            <User className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onTabChange("settings")}
+              className="travel-panel flex h-11 w-11 items-center justify-center transition-colors hover:bg-muted"
+            >
+              <User className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => void onSignOut()}
+              className="travel-panel flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Выйти"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 

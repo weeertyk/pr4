@@ -49,6 +49,7 @@ async function saveOnboarding(input: {
   budgetLevel: string
   preferenceMode: string
   travelStyles: string[]
+  language: string
 }) {
   const response = await fetch("/api/onboarding", {
     method: "POST",
@@ -60,7 +61,7 @@ async function saveOnboarding(input: {
       budgetLevel: input.budgetLevel,
       preferenceMode: input.preferenceMode,
       travelStyles: input.travelStyles,
-      language: "ru",
+      language: input.language,
       cityMode: true,
     }),
   })
@@ -151,6 +152,7 @@ export default function Home() {
     budgetLevel: string
     preferenceMode: string
     travelStyles: string[]
+    language: string
   }) {
     if (!authUser) {
       throw new Error("Сначала войдите в систему.")
@@ -162,6 +164,22 @@ export default function Home() {
     })
 
     setPreferences(response.preferences)
+
+    // Интеграция с CRM (Этап 4)
+    void fetch("/api/crm/lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: authUser.id,
+        email: authUser.email,
+        name: profile?.name,
+        budgetLevel: input.budgetLevel,
+        travelStyles: input.travelStyles,
+        language: input.language,
+        location: "Определяется...", 
+      }),
+    }).catch(err => console.error("CRM Sync Error:", err));
+
     setCurrentScreen("dashboard")
   }
 
@@ -191,7 +209,10 @@ export default function Home() {
   async function handleSignOut() {
     const supabase = getSupabaseBrowserClient()
     await supabase.auth.signOut()
+    setProfile(null)
+    setPreferences(null)
     setSelectedDestination(null)
+    setCurrentScreen("auth")
   }
 
   const fallbackDestination: DestinationPlace = {
@@ -233,6 +254,7 @@ export default function Home() {
             onNavigate={handleNavigate}
             onTabChange={handleTabChange}
             onOpenRecovery={() => setCurrentScreen("recovery")}
+            onSignOut={handleSignOut}
           />
         )}
 

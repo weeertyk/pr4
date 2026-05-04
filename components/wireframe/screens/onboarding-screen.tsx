@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowRight, Compass, LoaderCircle, Shield, Sparkles, Wallet, X } from "lucide-react"
+import { ArrowRight, Compass, Landmark, LoaderCircle, Mountain, Shield, Sparkles, User, Users, UtensilsCrossed, Wallet, X, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface OnboardingScreenProps {
@@ -12,6 +12,7 @@ interface OnboardingScreenProps {
     budgetLevel: string
     preferenceMode: string
     travelStyles: string[]
+    language: string
   }) => Promise<void> | void
   onClose: () => void
 }
@@ -23,9 +24,16 @@ const budgetOptions = [
 ]
 
 const styleOptions = [
-  { id: "efficiency", label: "Ритм", desc: "маршрут без лишних крюков", icon: ArrowRight },
-  { id: "safety", label: "Спокойствие", desc: "проверенные места и безопасные зоны", icon: Shield },
-  { id: "exploration", label: "Открытия", desc: "неочевидные места и маленькие находки", icon: Sparkles },
+  { id: "solo", label: "В одиночку", desc: "путешествие для одного", icon: User },
+  { id: "family", label: "Семья", desc: "комфорт для всей семьи", icon: Users },
+  { id: "adventure", label: "Приключения", desc: "активный и яркий отдых", icon: Mountain },
+  { id: "culture", label: "Культура", desc: "музеи, история и архитектура", icon: Landmark },
+  { id: "gastronomy", label: "Гастро", desc: "лучшая еда и локальные вкусы", icon: UtensilsCrossed },
+]
+
+const languageOptions = [
+  { id: "ru", label: "Русский" },
+  { id: "en", label: "English" },
 ]
 
 function toBudgetLevel(value: string) {
@@ -41,7 +49,7 @@ function toPreferenceMode(value: string) {
 }
 
 function toTravelStyles(values: string[]) {
-  return values.map((value) => value.toUpperCase())
+  return values // Теперь ID совпадают с названиями в CRM
 }
 
 function fromBudgetLevel(value?: string | null) {
@@ -52,12 +60,10 @@ function fromBudgetLevel(value?: string | null) {
 
 function fromTravelStyles(values?: string[]) {
   if (!values?.length) {
-    return ["safety", "exploration"]
+    return []
   }
 
   return values
-    .map((value) => value.toLowerCase())
-    .filter((value) => ["efficiency", "safety", "exploration"].includes(value))
 }
 
 export function OnboardingScreen({
@@ -69,6 +75,7 @@ export function OnboardingScreen({
 }: OnboardingScreenProps) {
   const [budget, setBudget] = useState(fromBudgetLevel(initialBudget))
   const [styles, setStyles] = useState<string[]>(fromTravelStyles(initialStyles))
+  const [language, setLanguage] = useState(initialStyles ? "en" : "ru")
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -88,7 +95,8 @@ export function OnboardingScreen({
       await onComplete({
         budgetLevel: toBudgetLevel(budget),
         preferenceMode,
-        travelStyles: toTravelStyles(styles),
+        travelStyles: styles.length > 0 ? styles : ["adventure", "culture"], // Дефолты только если ничего не выбрано
+        language,
       })
     } catch (completeError) {
       setError(completeError instanceof Error ? completeError.message : "Не удалось сохранить настройки.")
@@ -155,12 +163,17 @@ export function OnboardingScreen({
               key={option.id}
               onClick={() => setBudget(option.id)}
               className={cn(
-                "travel-panel flex w-full items-start gap-4 p-4 text-left transition-all",
+                "travel-panel flex w-full items-start gap-4 p-4 text-left transition-all relative overflow-hidden",
                 budget === option.id
-                  ? "border-primary bg-primary text-primary-foreground shadow-[0_14px_24px_rgba(196,104,73,0.22)]"
-                  : "hover:-translate-y-0.5 hover:bg-card",
+                  ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                  : "hover:bg-card/50",
               )}
             >
+              {budget === option.id && (
+                <div className="absolute top-0 right-0 p-2">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                </div>
+              )}
               <div
                 className={cn(
                   "flex h-11 w-11 items-center justify-center rounded-md border",
@@ -170,8 +183,10 @@ export function OnboardingScreen({
                 <option.icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{option.label}</p>
-                <p className={cn("mt-1 text-sm", budget === option.id ? "text-white/80" : "text-muted-foreground")}>
+                <p className={cn("font-semibold", budget === option.id ? "text-primary" : "text-foreground")}>
+                  {option.label}
+                </p>
+                <p className={cn("mt-1 text-sm", budget === option.id ? "text-primary/70" : "text-muted-foreground")}>
                   {option.note}
                 </p>
               </div>
@@ -194,7 +209,7 @@ export function OnboardingScreen({
                 onClick={() => toggleStyle(option.id)}
                 className={cn(
                   "travel-panel flex w-full items-center justify-between gap-4 p-4 text-left transition-all",
-                  active ? "border-secondary bg-secondary/55" : "hover:-translate-y-0.5 hover:bg-card",
+                  active ? "border-foreground bg-foreground/5 shadow-sm" : "hover:bg-card/50",
                 )}
               >
                 <div className="flex items-center gap-4">
@@ -224,6 +239,31 @@ export function OnboardingScreen({
           })}
         </div>
       </section>
+
+      <section className="px-5 py-5 pb-28">
+        <div className="mb-3">
+          <p className="travel-kicker">Язык</p>
+          <h2 className="travel-title text-2xl font-semibold">Язык интерфейса</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {languageOptions.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => setLanguage(option.id)}
+              className={cn(
+                "travel-panel p-4 text-center transition-all",
+                language === option.id
+                  ? "border-primary bg-primary/10 ring-1 ring-primary/20 text-primary"
+                  : "hover:bg-card/50 text-muted-foreground",
+              )}
+            >
+              <span className="font-semibold">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="h-32" /> {/* Дополнительный отступ, чтобы контент не скрывался под кнопкой */}
 
       <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-md px-5 pb-5">
         <div className="travel-panel flex w-full items-center justify-between gap-4 px-4 py-3">
