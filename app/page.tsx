@@ -251,6 +251,7 @@ export default function Home() {
         {currentScreen === "dashboard" && authUser && (
           <DashboardScreen
             userId={authUser.id}
+            userEmail={authUser?.email ?? undefined}
             onNavigate={handleNavigate}
             onTabChange={handleTabChange}
             onOpenRecovery={() => setCurrentScreen("recovery")}

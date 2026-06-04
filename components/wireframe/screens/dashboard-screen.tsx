@@ -80,7 +80,7 @@ function actionLabel(actionType: string | undefined) {
   }
 }
 
-export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecovery, onSignOut }: DashboardScreenProps) {
+export function DashboardScreen({ userId, userEmail, onNavigate, onTabChange, onOpenRecovery, onSignOut }: DashboardScreenProps) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
