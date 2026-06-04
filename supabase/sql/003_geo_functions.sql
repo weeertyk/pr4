@@ -156,3 +156,36 @@ as $$
     user_context.country,
     user_context.source;
 $$;
+
+create or replace function public.get_users_near_place(
+  in_place_id uuid,
+  in_distance_meters double precision default 1000.0
+)
+returns table (
+  user_id uuid,
+  email text,
+  distance_meters double precision
+)
+language sql
+stable
+as $$
+  with latest_context as (
+    select distinct on (user_id)
+      user_id,
+      location,
+      updated_at
+    from public.user_context
+    order by user_id, updated_at desc
+  ),
+  place_loc as (
+    select location from public.places where id = in_place_id
+  )
+  select
+    lc.user_id,
+    u.email,
+    extensions.st_distance(lc.location, pl.location) as distance_meters
+  from latest_context lc
+  join public.users u on u.id = lc.user_id
+  cross join place_loc pl
+  where extensions.st_distance(lc.location, pl.location) <= in_distance_meters;
+$$;

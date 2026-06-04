@@ -235,7 +235,7 @@ export async function getPlaceRisks(placeIds: string[]) {
   const rows = ensureData(data, error) ?? []
 
   return rows.map(
-    (row) =>
+    (row: any) =>
       ({
         ...row,
         reasons: parseReasons(row.reasons),
@@ -401,7 +401,7 @@ export async function rebuildTodayPlan(input: {
       }
     : todayPlan.latestEvent
 
-  const blockedPlaceId = latestEvent?.relatedPlaceId ?? todayPlan.latestEvent?.related_place_id ?? null
+  const blockedPlaceId = (latestEvent as any)?.relatedPlaceId ?? todayPlan.latestEvent?.related_place_id ?? null
   const alternatives = recommendationData.alternatives.filter((item) => item.id !== blockedPlaceId)
   const replacement = alternatives[0] ?? recommendationData.recommendation
 

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 
 interface SafetyScreenProps {
   onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
+  userEmail?: string
 }
 
 type AreaKey = "center" | "tourist" | "riverside"
@@ -65,13 +66,23 @@ function getRiskPresentation(level: "SAFE" | "CAUTION" | "AVOID", score: number)
   }
 }
 
-export function SafetyScreen({ onTabChange }: SafetyScreenProps) {
+export function SafetyScreen({ onTabChange, userEmail }: SafetyScreenProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedArea, setSelectedArea] = useState<AreaKey>("center")
   const [data, setData] = useState<AreaSafetyData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+
+  // Поля формы подачи жалобы в BPMS
+  const [showReportForm, setShowReportForm] = useState(false)
+  const [places, setPlaces] = useState<any[]>([])
+  const [selectedPlaceId, setSelectedPlaceId] = useState("")
+  const [reporterEmail, setReporterEmail] = useState(userEmail || "")
+  const [description, setDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   const currentArea = areaOptions.find((area) => area.id === selectedArea) ?? areaOptions[0]
 
@@ -118,6 +129,69 @@ export function SafetyScreen({ onTabChange }: SafetyScreenProps) {
       isActive = false
     }
   }, [currentArea.lat, currentArea.lng])
+
+  useEffect(() => {
+    if (showReportForm) {
+      let isActive = true
+      async function loadNearbyPlaces() {
+        try {
+          const response = await fetch(`/api/places/nearby?lat=${currentArea.lat}&lng=${currentArea.lng}&limit=10`)
+          if (response.ok && isActive) {
+            const json = await response.json()
+            if (json.ok && json.places) {
+              setPlaces(json.places)
+              if (json.places.length > 0) {
+                setSelectedPlaceId(json.places[0].id)
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load places nearby:", err)
+        }
+      }
+      void loadNearbyPlaces()
+      return () => {
+        isActive = false
+      }
+    }
+  }, [showReportForm, currentArea.lat, currentArea.lng])
+
+  async function handleReportSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedPlaceId || !reporterEmail || !description) return
+
+    setIsSubmitting(true)
+    setSubmitSuccess(null)
+    setReportError(null)
+
+    try {
+      const response = await fetch("/api/safety/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poiId: selectedPlaceId,
+          email: reporterEmail,
+          description: description
+        })
+      })
+
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(json.error || "Не удалось отправить жалобу.")
+      }
+
+      setSubmitSuccess(true)
+      setDescription("")
+      setTimeout(() => {
+        setShowReportForm(false)
+        setSubmitSuccess(null)
+      }, 3000)
+    } catch (err: any) {
+      setReportError(err.message || "Произошла ошибка при отправке.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   const presentation = getRiskPresentation(data?.zone?.risk_level ?? "SAFE", data?.zone?.risk_score ?? 80)
 
@@ -196,6 +270,95 @@ export function SafetyScreen({ onTabChange }: SafetyScreenProps) {
           </div>
         )}
       </section>
+
+      {/* Кнопка жалобы — всегда видна сразу под карточкой */}
+      <section className="px-5 pb-2">
+        <button
+          onClick={() => setShowReportForm(true)}
+          className="w-full rounded-md border border-destructive/30 bg-destructive/10 text-destructive px-4 py-3 text-sm font-semibold hover:bg-destructive hover:text-destructive-foreground transition-all flex items-center justify-center gap-2"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          Сообщить об угрозе безопасности
+        </button>
+      </section>
+
+      {/* Оверлей формы жалобы */}
+      {showReportForm && (
+        <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleReportSubmit} className="w-full max-w-sm travel-panel p-6 space-y-4 shadow-lg">
+            <h3 className="travel-title text-xl font-semibold text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Жалоба на безопасность POI
+            </h3>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Выберите объект (POI)
+              </label>
+              {places.length > 0 ? (
+                <select
+                  value={selectedPlaceId}
+                  onChange={(e) => setSelectedPlaceId(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary"
+                  required
+                >
+                  {places.map((place) => (
+                    <option key={place.id} value={place.id}>
+                      {place.name} ({place.category})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-muted-foreground">Загрузка ближайших объектов...</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Описание угрозы
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Опишите проблему (например, карманники, мошенничество)..."
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary resize-none"
+                required
+              />
+            </div>
+
+            {reportError && (
+              <p className="text-sm text-destructive font-medium">{reportError}</p>
+            )}
+
+            {submitSuccess && (
+              <p className="text-sm text-emerald-600 font-medium flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Жалоба отправлена в BPMS ELMA365!
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={isSubmitting || places.length === 0}
+                className="flex-1 rounded-md bg-destructive text-destructive-foreground py-3 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+              >
+                {isSubmitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                Отправить
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportForm(false)}
+                disabled={isSubmitting}
+                className="flex-1 rounded-md border border-border bg-card py-3 text-sm font-semibold hover:bg-muted transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <section className="px-5 pb-4">
         <div className="mb-3">

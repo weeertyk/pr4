@@ -310,3 +310,76 @@ create trigger set_trip_plans_updated_at
 before update on public.trip_plans
 for each row
 execute function public.set_updated_at();
+
+-- Типы и таблица для жалоб на безопасность объектов (POI)
+create type public.safety_report_status as enum ('PENDING', 'INSUFFICIENT_DATA', 'VERIFIED', 'REJECTED');
+
+create table if not exists public.safety_reports (
+  id uuid primary key default extensions.gen_random_uuid(),
+  poi_id uuid not null references public.places(id) on delete cascade,
+  reporter_email text not null,
+  description text not null,
+  status public.safety_report_status not null default 'PENDING',
+  risk_category text,
+  risk_score int check (risk_score between 0 and 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Индексы для оптимизации выборок
+create index if not exists idx_safety_reports_poi_id on public.safety_reports(poi_id);
+create index if not exists idx_safety_reports_reporter_email on public.safety_reports(reporter_email);
+
+-- Настройка Row Level Security (RLS)
+alter table public.safety_reports enable row level security;
+
+create policy "users can insert safety reports"
+on public.safety_reports
+for insert
+to authenticated
+with check (true);
+
+create policy "users can read own safety reports"
+on public.safety_reports
+for select
+to authenticated
+using (auth.jwt() ->> 'email' = reporter_email);
+
+create policy "moderators can manage safety reports"
+on public.safety_reports
+for all
+to authenticated
+using (
+  exists (
+    select 1 from public.users u 
+    where u.id = auth.uid() and u.role in ('MODERATOR', 'ADMIN')
+  )
+);
+
+-- Автоматическое обновление даты изменения
+create trigger set_safety_reports_updated_at
+before update on public.safety_reports
+for each row
+execute function public.set_updated_at();
+
+-- Таблица уведомлений от BPMS и системы
+create table public.notifications (
+    id uuid default gen_random_uuid() primary key,
+    user_email text not null,
+    title text not null,
+    message text not null,
+    is_read boolean default false,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.notifications enable row level security;
+
+create policy "users can read own notifications"
+on public.notifications
+for select
+using (auth.jwt()->>'email' = user_email);
+
+create policy "users can update own notifications"
+on public.notifications
+for update
+using (auth.jwt()->>'email' = user_email);

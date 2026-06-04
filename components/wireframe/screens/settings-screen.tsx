@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Bell, ChevronRight, Globe, HelpCircle, LogOut, Shield, Sparkles, User } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, ChevronRight, Globe, HelpCircle, LogOut, Shield, Sparkles, User, X, Check } from "lucide-react"
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { BottomNav } from "../bottom-nav"
 
 interface SettingsScreenProps {
@@ -53,6 +54,34 @@ export function SettingsScreen({
   onSignOut,
 }: SettingsScreenProps) {
   const [infoMessage, setInfoMessage] = useState("Нажмите на карточку, чтобы открыть связанный раздел или поменять настройки.")
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    if (profile?.email) {
+      const fetchNotifications = async () => {
+        const supabase = getSupabaseBrowserClient() as any
+        const { data } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_email", profile.email)
+          .order("created_at", { ascending: false })
+        if (data) {
+          setNotifications(data)
+        }
+      }
+      void fetchNotifications()
+    }
+  }, [profile?.email])
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
+
+  async function markAsRead(id: string) {
+    const supabase = getSupabaseBrowserClient() as any
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id)
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
+  }
+
   const settingsGroups = [
     {
       title: "Профиль",
@@ -64,7 +93,7 @@ export function SettingsScreen({
     {
       title: "Поведение приложения",
       items: [
-        { icon: Bell, label: "Уведомления", value: "только важные", action: () => setInfoMessage("Уведомления пока демонстрационные, но кнопка уже связана.") },
+        { icon: Bell, label: "Уведомления", value: unreadCount > 0 ? `${unreadCount} новых` : "нет новых", action: () => setShowNotifications(true) },
         { icon: Shield, label: "Безопасность", value: formatMode(preferences?.preference_mode), action: () => onTabChange("safety") },
       ],
     },
@@ -198,6 +227,38 @@ export function SettingsScreen({
           Выйти из аккаунта
         </button>
       </section>
+
+      {showNotifications && (
+        <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-50 flex flex-col p-4 overflow-hidden">
+          <div className="flex items-center justify-between mb-6 pt-4">
+            <h2 className="travel-title text-2xl font-semibold">Уведомления</h2>
+            <button onClick={() => setShowNotifications(false)} className="p-2 border-2 border-foreground hover:bg-muted transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-auto space-y-3 pb-20">
+            {notifications.length === 0 ? (
+              <p className="text-muted-foreground text-sm border-2 border-foreground p-4">У вас пока нет уведомлений.</p>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className={`p-4 border-2 border-foreground ${n.is_read ? "bg-background opacity-75" : "bg-muted"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-semibold text-sm">{n.title}</h4>
+                    {!n.is_read && (
+                      <button onClick={() => markAsRead(n.id)} className="text-xs border border-foreground px-2 py-1 hover:bg-background transition-colors flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Ок
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-foreground/85 leading-relaxed">{n.message}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString("ru-RU")}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       <BottomNav activeTab="settings" onTabChange={onTabChange} />
     </div>

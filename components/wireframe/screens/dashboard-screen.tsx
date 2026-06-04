@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, ArrowRight, CloudRain, Compass, LoaderCircle, LogOut, Navigation, Shield, User } from "lucide-react"
+import { AlertTriangle, ArrowRight, CloudRain, Compass, LoaderCircle, LogOut, Navigation, Shield, User, Bell } from "lucide-react"
 import { getPlaceCategoryLabel } from "@/lib/travel/presentation"
 import type { DestinationPlace } from "@/lib/travel/ui-types"
 import { BottomNav } from "../bottom-nav"
 
 interface DashboardScreenProps {
   userId: string
+  userEmail?: string
   onNavigate: (destination?: DestinationPlace) => void
   onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
   onOpenRecovery: () => void
@@ -83,6 +84,35 @@ export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecover
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    if (!userEmail) return;
+    fetch(`/api/notifications?email=${encodeURIComponent(userEmail)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.notifications) {
+          setNotifications(data.notifications)
+        }
+      })
+      .catch(console.error)
+  }, [userEmail])
+
+  const markAsRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const unreadCount = notifications.filter(n => !n.is_read).length
 
   useEffect(() => {
     let isActive = true
@@ -156,7 +186,16 @@ export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecover
               Держу ритм маршрута в фокусе и подсказываю следующее лучшее действие.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="travel-panel flex h-11 w-11 items-center justify-center transition-colors hover:bg-muted relative"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-background" />
+              )}
+            </button>
             <button
               onClick={() => onTabChange("settings")}
               className="travel-panel flex h-11 w-11 items-center justify-center transition-colors hover:bg-muted"
@@ -170,6 +209,32 @@ export function DashboardScreen({ userId, onNavigate, onTabChange, onOpenRecover
             >
               <LogOut className="h-5 w-5" />
             </button>
+
+            {/* Модалка уведомлений */}
+            {showNotifications && (
+              <div className="absolute top-14 right-0 w-80 travel-panel bg-background z-50 p-4 shadow-xl border overflow-hidden max-h-96 overflow-y-auto">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Уведомления</h3>
+                  <button onClick={() => setShowNotifications(false)} className="text-xs text-muted-foreground">Закрыть</button>
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Нет новых уведомлений</p>
+                ) : (
+                  <div className="space-y-2">
+                    {notifications.map(n => (
+                      <div 
+                        key={n.id} 
+                        onClick={() => !n.is_read && markAsRead(n.id)}
+                        className={`p-3 rounded-md text-sm cursor-pointer transition-colors ${n.is_read ? 'bg-muted/50 text-muted-foreground' : 'bg-primary/5 border border-primary/20'}`}
+                      >
+                        <p className="font-medium">{n.title}</p>
+                        <p className="mt-1 opacity-90 leading-snug">{n.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>

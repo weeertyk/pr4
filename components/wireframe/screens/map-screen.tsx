@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Layers, LoaderCircle, Minus, Navigation, Plus, Search } from "lucide-react"
+import { AlertTriangle, CheckCircle, Layers, LoaderCircle, Minus, Navigation, Plus, Search } from "lucide-react"
 import { MapLibreMap } from "@/components/travel/maplibre-map"
 import { DEMO_CITY_CENTER } from "@/lib/travel/demo"
 import { getPlaceCategoryLabel } from "@/lib/travel/presentation"
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 interface MapScreenProps {
   readonly onTabChange: (tab: "home" | "map" | "safety" | "settings") => void
   readonly onNavigate: (destination?: DestinationPlace) => void
+  readonly userEmail?: string
 }
 
 type BoundsPlace = {
@@ -51,7 +52,7 @@ function filterPlace(place: BoundsPlace, activeFilter: FilterId, searchQuery: st
   return place.category === "TRANSPORT"
 }
 
-export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
+export function MapScreen({ onTabChange, onNavigate, userEmail }: MapScreenProps) {
   const [activeFilter, setActiveFilter] = useState<FilterId>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [zoomIndex, setZoomIndex] = useState(1)
@@ -59,6 +60,20 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Поля формы жалобы в BPMS
+  const [showReportForm, setShowReportForm] = useState(false)
+  const [reporterEmail, setReporterEmail] = useState(userEmail || "")
+  const [description, setDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null)
+  const [reportError, setReportError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (userEmail) {
+      setReporterEmail(userEmail)
+    }
+  }, [userEmail])
 
   const span = zoomSpans[zoomIndex]
 
@@ -108,6 +123,43 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
   useEffect(() => {
     if (!selectedPlaceId && filteredPlaces[0]) setSelectedPlaceId(filteredPlaces[0].id)
   }, [filteredPlaces, selectedPlaceId])
+
+  async function handleReportSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedPlace || !reporterEmail || !description) return
+
+    setIsSubmitting(true)
+    setSubmitSuccess(null)
+    setReportError(null)
+
+    try {
+      const response = await fetch("/api/safety/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poiId: selectedPlace.id,
+          email: reporterEmail,
+          description: description
+        })
+      })
+
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(json.error || "Не удалось отправить жалобу.")
+      }
+
+      setSubmitSuccess(true)
+      setDescription("")
+      setTimeout(() => {
+        setShowReportForm(false)
+        setSubmitSuccess(null)
+      }, 3000)
+    } catch (err: any) {
+      setReportError(err.message || "Произошла ошибка при отправке.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   function handleCycleFilter() {
     const currentIndex = filters.findIndex((filter) => filter.id === activeFilter)
@@ -230,22 +282,32 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
           <p className="text-xs text-muted-foreground">
             {selectedPlace ? getPlaceCategoryLabel(selectedPlace.category) : "Выберите маркер на карте"}
           </p>
-          <button
-            disabled={!selectedPlace}
-            onClick={() => {
-              if (!selectedPlace) return
-              onNavigate({
-                id: selectedPlace.id,
-                name: selectedPlace.name,
-                category: selectedPlace.category,
-                latitude: selectedPlace.latitude,
-                longitude: selectedPlace.longitude,
-              })
-            }}
-            className="mt-2 px-4 py-2 border-2 border-foreground font-bold text-sm hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            Маршрут
-          </button>
+          <div className="flex gap-2">
+            <button
+              disabled={!selectedPlace}
+              onClick={() => {
+                if (!selectedPlace) return
+                onNavigate({
+                  id: selectedPlace.id,
+                  name: selectedPlace.name,
+                  category: selectedPlace.category,
+                  latitude: selectedPlace.latitude,
+                  longitude: selectedPlace.longitude,
+                })
+              }}
+              className="mt-2 px-4 py-2 border-2 border-foreground font-bold text-sm hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              Маршрут
+            </button>
+            <button
+              disabled={!selectedPlace}
+              onClick={() => setShowReportForm(true)}
+              className="mt-2 px-4 py-2 border-2 border-destructive bg-destructive/10 text-destructive font-bold text-sm hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Пожаловаться
+            </button>
+          </div>
         </div>
 
         <div>
@@ -276,6 +338,69 @@ export function MapScreen({ onTabChange, onNavigate }: MapScreenProps) {
           </div>
         </div>
       </div>
+
+      {showReportForm && selectedPlace && (
+        <div className="absolute inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleReportSubmit} className="w-full max-w-sm border-2 border-foreground bg-background p-6 space-y-4 shadow-lg">
+            <h3 className="font-semibold text-lg text-destructive flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Сообщить об угрозе
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Вы сообщаете об угрозе безопасности для объекта <strong>{selectedPlace.name}</strong>.
+            </p>
+
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Описание угрозы
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Опишите проблему безопасности..."
+                rows={3}
+                className="w-full border-2 border-foreground bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground resize-none"
+                required
+              />
+            </div>
+
+            {reportError && (
+              <p className="text-xs text-destructive font-medium">{reportError}</p>
+            )}
+
+            {submitSuccess && (
+              <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" />
+                Жалоба отправлена!
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 border-2 border-foreground bg-foreground text-background py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+              >
+                {isSubmitting && <LoaderCircle className="w-4 h-4 animate-spin" />}
+                Отправить
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReportForm(false)
+                  setSubmitSuccess(null)
+                  setReportError(null)
+                }}
+                disabled={isSubmitting}
+                className="flex-1 border-2 border-foreground bg-background py-2 text-sm font-semibold hover:bg-muted transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <BottomNav activeTab="map" onTabChange={onTabChange} />
     </div>

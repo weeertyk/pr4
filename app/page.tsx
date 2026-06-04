@@ -258,7 +258,7 @@ export default function Home() {
           />
         )}
 
-        {currentScreen === "safety" && <SafetyScreen onTabChange={handleTabChange} />}
+        {currentScreen === "safety" && <SafetyScreen onTabChange={handleTabChange} userEmail={authUser?.email ?? undefined} />}
 
         {currentScreen === "navigation" && (
           <NavigationScreen
@@ -272,6 +272,7 @@ export default function Home() {
           <MapScreen
             onTabChange={handleTabChange}
             onNavigate={handleNavigate}
+            userEmail={authUser?.email ?? undefined}
           />
         )}
 

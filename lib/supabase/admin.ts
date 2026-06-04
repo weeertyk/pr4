@@ -3,7 +3,7 @@ import { getServerEnv } from "@/lib/env"
 
 let cachedAdminClient: ReturnType<typeof createClient> | null = null
 
-export function getSupabaseAdmin() {
+export function getSupabaseAdmin(): any {
   if (cachedAdminClient) {
     return cachedAdminClient
   }
